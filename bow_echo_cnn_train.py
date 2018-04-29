@@ -11,6 +11,7 @@ import tensorflow.contrib.slim as slim
 
 import bow_echo_cnn_test
 import bow_echo_data
+import kfold_bed
 import mnist_data
 import cnn_model
 
@@ -18,34 +19,40 @@ MODEL_DIRECTORY = "model/model.ckpt"
 LOGS_DIRECTORY = "logs/train"
 
 def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_weighted_loss=True,
-	      imbalanced_class_ratio=1, imbalanced_class_index=0, imbalanced_class_weight_mult=1):
+          imbalanced_class_ratio=1, imbalanced_class_index=0, imbalanced_class_weight_mult=1, kfold=4, kfold_index=0):
 	# Prepare data
 	if dataset == 'bow_echo':
 		#epochs = 100
 		display_step = 10
 		validation_step = 50
-		result = bow_echo_data.prepare_bow_echo_data(imbalanced_class_ratio)
+		if kfold > 1:
+			train_total_data, test_data, test_labels, img_shape =\
+				kfold_bed.prepare_kfold_bed(imbalanced_class_ratio, kfold, kfold_index)
+		else:
+			train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape =\
+				bow_echo_data.prepare_bow_echo_data(imbalanced_class_ratio)
 	else: #dataset == 'mnist':
 		#epochs = 20
 		display_step = 100
 		validation_step = 500
-		result = mnist_data.prepare_MNIST_data()
-	train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape = result
+		train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape =\
+			mnist_data.prepare_MNIST_data()
 	train_size = train_total_data.shape[0]
-	num_pixels = validation_data.shape[1]
-	num_labels = validation_labels.shape[1]
+	num_pixels = test_data.shape[1]
+	num_classes = test_labels.shape[1]
 
 	if use_weighted_loss:
 		#extract training labels
-		train_labels = train_total_data[:, -num_labels:]
+		train_labels = train_total_data[:, -num_classes:]
 		#convert one hot labels to integers
 		train_int_labels = np.argmax(train_labels, axis=1)
 		#count the amount of data per class
-		train_label_bin = np.bincount(train_int_labels, minlength=num_labels)
+		train_label_bin = np.bincount(train_int_labels, minlength=num_classes)
 		#compute weights inversely proportional to amount of data per class
-		class_weights = (train_size / num_labels / train_label_bin)
+		class_weights = (train_size / num_classes / train_label_bin)
 		#multiply underrepresented class by a constant
 		class_weights[imbalanced_class_index] *= imbalanced_class_weight_mult
+		class_weights = np.array([1, 0])
 		#create data weights from class weights
 		train_data_weights = class_weights[train_int_labels]
 		#calculate pos_weight used for a different loss function
@@ -53,7 +60,6 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 	else:
 		train_data_weights = np.ones(train_size)
 		pos_weight = 1
-
 	tf.reset_default_graph()
 
 	# Boolean for MODE of train or test
@@ -61,11 +67,11 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 
 	# tf Graph input
 	x = tf.placeholder(tf.float32, [None, num_pixels])
-	y_ = tf.placeholder(tf.float32, [None, num_labels]) #answer
+	y_ = tf.placeholder(tf.float32, [None, num_classes]) #answer
 	w = tf.placeholder(tf.float32, [batch_size])
 
 	# Predict
-	y = cnn_model.CNN(x, img_shape, num_labels, keep_prob=keep_prob)
+	y = cnn_model.CNN(x, img_shape, num_classes, keep_prob=keep_prob)
 
 	# Get loss of model
 	with tf.name_scope("LOSS"):
@@ -74,15 +80,17 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 		#loss = tf.losses.softmax_cross_entropy(y_, y, w)
 
 		#same loss as above, but broken down
-		#losses = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y)
-		#losses = tf.multiply(losses, w)
-		#loss = tf.reduce_mean(losses)
-
-		#loss with pos_weight
-		losses = tf.nn.weighted_cross_entropy_with_logits(y_, y, pos_weight)
+		losses_uw = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y)
+		loss_uw = tf.reduce_mean(losses_uw)
+		losses = tf.multiply(losses_uw, w)
 		loss = tf.reduce_mean(losses)
 
+		# loss with pos_weight
+		# losses = tf.nn.weighted_cross_entropy_with_logits(y_, y, pos_weight)
+		# loss = tf.reduce_mean(losses)
+
 	# Create a summary to monitor loss tensor
+	tf.summary.scalar('loss_uw', loss_uw)
 	tf.summary.scalar('loss', loss)
 
 	# Define optimizer
@@ -98,7 +106,7 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 			0.95,  # Decay rate. Originally 0.95
 			staircase=True)
 		# Use simple momentum for the optimization.
-		train_step = tf.train.AdamOptimizer(learning_rate).minimize(loss,global_step=batch)
+		train_step = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=batch)
 
 	# Create a summary to monitor learning_rate tensor
 	tf.summary.scalar('learning_rate', learning_rate)
@@ -107,9 +115,15 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 	with tf.name_scope("ACC"):
 		correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
 		accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+		train_conf = tf.confusion_matrix(labels=tf.argmax(y_, 1), predictions=tf.argmax(y, 1), num_classes=num_classes)
+		nbe_acc = train_conf[0, 0] / tf.reduce_sum(train_conf[0, :])
+		be_acc = train_conf[1, 1] / tf.reduce_sum(train_conf[1, :])
+
 
 	# Create a summary to monitor accuracy tensor
 	tf.summary.scalar('acc', accuracy)
+	tf.summary.scalar('nbe_train_acc', nbe_acc)
+	tf.summary.scalar('be_train_acc', be_acc)
 
 	# Merge all summaries into a single op
 	merged_summary_op = tf.summary.merge_all()
@@ -133,8 +147,8 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 
 		# Random shuffling
 		np.random.shuffle(train_total_data)
-		train_data_ = train_total_data[:, :-num_labels]
-		train_labels_ = train_total_data[:, -num_labels:]
+		train_data_ = train_total_data[:, :-num_classes]
+		train_labels_ = train_total_data[:, -num_classes:]
 
 		# Loop over all batches
 		for i in range(total_batch):
@@ -146,7 +160,7 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 			batch_data_weights = train_data_weights[offset:(offset + batch_size)]
 			# Run optimization op (backprop), loss op (to get loss value)
 			# and summary nodes
-			_, train_accuracy, summary = sess.run([train_step, accuracy, merged_summary_op],
+			_, train_accuracy, nbe_train_acc, be_train_acc, summary = sess.run([train_step, accuracy, nbe_acc, be_acc, merged_summary_op],
 				feed_dict={x: batch_xs, y_: batch_ys, w: batch_data_weights, is_training: True})
 			# Write logs at every iteimbalanced_class_ration
 			summary_writer.add_summary(summary, epoch * total_batch + i)
@@ -157,19 +171,20 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 				"batch_index %4d/%4d, training accuracy %.5f" % (i, total_batch, train_accuracy))
 
 			# Get accuracy for validation data
-			if i % validation_step == 0:
-				# Calculate accuracy
-				validation_accuracy = sess.run(accuracy,
-				feed_dict={x: validation_data, y_: validation_labels, is_training: False})
-
-				print("Epoch:", '%04d,' % (epoch + 1),
-				"batch_index %4d/%4d, validation accuracy %.5f" % (i, total_batch, validation_accuracy))
-
-			# Save the current model if the maximum accuracy is updated
-			if validation_accuracy > max_acc:
-				max_acc = validation_accuracy
-				save_path = saver.save(sess, MODEL_DIRECTORY)
-				print("Model updated and saved in file: %s" % save_path)
+			# if i % validation_step == 0:
+			# 	# Calculate accuracy
+			# 	validation_accuracy = sess.run(accuracy,
+			# 	feed_dict={x: validation_data, y_: validation_labels, is_training: False})
+			#
+			# 	print("Epoch:", '%04d,' % (epoch + 1),
+			# 	"batch_index %4d/%4d, validation accuracy %.5f" % (i, total_batch, validation_accuracy))
+			#
+			# 	# Save the current model if the maximum accuracy is updated
+			# 	if validation_accuracy > max_acc:
+			# 		max_acc = validation_accuracy
+			# 		save_path = saver.save(sess, MODEL_DIRECTORY)
+			# 		print("Model updated and saved in file: %s" % save_path)
+		saver.save(sess, MODEL_DIRECTORY)
 
 	print("Optimization Finished!")
 
@@ -197,4 +212,4 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 	print("test accuracy for the stored model: %g" % np.mean(acc_buffer))
 
 if __name__ == '__main__':
-	train(dataset='bow_echo', imbalanced_class_ratio=25)
+	train(dataset='bow_echo', imbalanced_class_ratio=10)

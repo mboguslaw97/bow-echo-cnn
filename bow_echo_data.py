@@ -65,10 +65,12 @@ def extract_data(imgs_dir, max_img_count=float('inf')):
 	return data
 
 def create_tensor(hdf_path, ratio=1):
-	bow_echoes_dir = '/storage/home/meb6031/data/bow_echoes'
-	not_bow_echoes_dir = '/storage/home/meb6031/data/not_bow_echoes'
+	bow_echoes_dir = '/storage/home/meb6031/data/bow_echoes' #aci
+	not_bow_echoes_dir = '/storage/home/meb6031/data/not_bow_echoes' #aci
+	#bow_echoes_dir = '/home/meb6031/data/bow_echoes' #galois
+	#not_bow_echoes_dir = '/home/meb6031/data/not_bow_echoes' #galois
 
-	train_percent = .8
+	train_percent = .75
 	validation_percent = .0
 
 	bow_echoes = extract_data(bow_echoes_dir)
@@ -99,10 +101,11 @@ def create_tensor(hdf_path, ratio=1):
 		hdf.create_dataset('test_labels', data=test_labels)
 
 def prepare_bow_echo_data(ratio=1):
-	if ratio == 1:
-		hdf_path = '/storage/home/meb6031/data/bow_echo_data.h5'
-	else:
-		hdf_path = '/storage/home/meb6031/data/bed_{}to1.h5'.format(ratio)
+	img_shape = (55, 55)
+
+	hdf_path = '/storage/home/meb6031/data/bed_{}to1.h5'.format(ratio) #aci
+	#hdf_path = '/home/meb6031/data/bed_{}to1.h5'.format(ratio) #galois
+
 	if (not os.path.isfile(hdf_path)):
 		create_tensor(hdf_path, ratio)
 
@@ -112,13 +115,15 @@ def prepare_bow_echo_data(ratio=1):
 		validation_labels = np.array(hdf.get('validation_labels'))
 		test_data = np.array(hdf.get('test_data'))
 		test_labels = np.array(hdf.get('test_labels'))
-	img_shape = (55, 55)
+
 	return train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape
 
 if __name__ == '__main__':
 	train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape\
-		= prepare_bow_echo_data(ratio=35)
+		= prepare_bow_echo_data(ratio=10)
+	print(train_total_data.shape)
+	print(test_data.shape)
+	print(test_labels.shape)
 	print(np.bincount(np.argmax(test_labels, axis=1)))
 	print(np.count_nonzero(train_total_data[:, -1]) / np.count_nonzero(train_total_data[:, -2]))
-	print(np.count_nonzero(validation_labels[:, -1]) / np.count_nonzero(validation_labels[:, -2]))
 	print(np.count_nonzero(test_labels[:, -1]) / np.count_nonzero(test_labels[:, -2]))
