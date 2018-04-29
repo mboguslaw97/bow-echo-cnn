@@ -20,21 +20,22 @@ def test(dataset, imbalanced_class_ratio=1, kfold=4, kfold_index=0):
     model_directory = 'model/model.ckpt'
 
     if dataset == 'bow_echo':
-	    # epochs = 100
-	    display_step = 10
-	    validation_step = 50
-	    if kfold > 1:
-		    train_total_data, test_data, test_labels, img_shape =\
-			    kfold_bed.prepare_kfold_bed(imbalanced_class_ratio, kfold, kfold_index)
-	    else:
-		    train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape =\
-			    bow_echo_data.prepare_bow_echo_data(imbalanced_class_ratio)
-    else: #dataset == 'mnist':
-		#epochs = 20
+        # epochs = 100
+        display_step = 10
+        validation_step = 50
+        if kfold > 1:
+            train_total_data, test_data, test_labels, img_shape = \
+                kfold_bed.prepare_kfold_bed(imbalanced_class_ratio, kfold, kfold_index)
+        else:
+            train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape = \
+                bow_echo_data.prepare_bow_echo_data(imbalanced_class_ratio)
+    else:
+        #dataset == 'mnist':
+        #epochs = 20
         display_step = 100
         validation_step = 500
-        train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape =\
-			mnist_data.prepare_MNIST_data()
+        train_total_data, validation_data, validation_labels, test_data, test_labels, img_shape = \
+            mnist_data.prepare_MNIST_data()
     train_size = train_total_data.shape[0]
     num_labels = test_labels.shape[1]
     num_pixels = test_data.shape[1]
