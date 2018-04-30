@@ -63,6 +63,7 @@ if __name__ == '__main__':
     test_accs_map = {}
     ratios = range(10, 45, 5)
     mults = [.25, .5, 1, 2, 4]
+    '''TODO: We should create a separate file with these loops and just run this file from it'''
     for ratio in ratios:
         for mult in mults:
             avg_train_acc = 0
