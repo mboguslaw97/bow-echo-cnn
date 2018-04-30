@@ -83,7 +83,7 @@ if __name__ == '__main__':
     test_accs_map[(ratio, mult)] = test_accs
 
     # abs_dir = '/storage/home/meb6031/bow_echo_cnn/plots/run1/'  # aci
-    abs_dir = op.join(os.getcwd(),'plots','run1')
+    abs_dir = op.join(os.getcwd(),'plots','run2')
     pickle.dump(train_accs_map, open(op.join(abs_dir, 'train_accs_map.p'), "wb"))
     pickle.dump(test_accs_map, open(op.join(abs_dir, 'test_accs_map.p'), "wb"))
 
