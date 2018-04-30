@@ -49,10 +49,11 @@ if __name__ == '__main__':
                         help='index of class to be made imbalanced with [ratio]')
     parser.add_argument('-m', '--imbalanced-class-weight-multiplier', type=float, default=1,
                         help='value to scale imbalanced class weight')
+    parser.add_argument('-f','--kfold',type=int,default=4, help='Number of folds for cross validation. Default 4, use 1 for no cross validation')
     args = parser.parse_args()
 
     use_weighted_loss = args.use_weighted_loss in ('t', 'true')
-    kfold = 4
+    kfold = args.kfold
     kfold_index = 0
 
     #experiment(args.dataset, args.epochs, args.batch_size, args.keep_probability, use_weighted_loss, args.imbalanced_class_ratio,

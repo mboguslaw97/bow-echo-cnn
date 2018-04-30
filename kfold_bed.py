@@ -90,8 +90,10 @@ def create_tensor(hdf_path, ratio=1, k=4):
 def prepare_kfold_bed(ratio=1, k=4, index=0):
     img_shape = (55, 55)
     #hdf_path = r'C:\Users\MBOGU\Documents\Research\bow_echo_cnn\data\k{}fold_bed_{}to1.h5'.format(k, ratio) #local
-    hdf_path = '/storage/home/meb6031/data/k{}fold_bed_{}to1.h5'.format(k, ratio) #aci
+    #hdf_path = '/storage/home/meb6031/data/k{}fold_bed_{}to1.h5'.format(k, ratio) #aci
     #hdf_path = '/home/meb6031/data/k{}fold_bed_{}to1.h5'.format(k, ratio) #galois
+    hdf_file = 'k{}fold_bed_{}to1.h5'.format(k, ratio)
+    hdf_path = op.join(os.getcwd(),'data',hdf_file)
     if (not os.path.isfile(hdf_path)):
         create_tensor(hdf_path, ratio, k)
 
