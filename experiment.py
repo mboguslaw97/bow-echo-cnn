@@ -5,6 +5,7 @@ import numpy as np
 import os
 import os.path as op
 import pickle
+import tensorflow as tf
 
 def calc_class_accs(conf):
     # Calculate the accuracy of each class based on the confusion matrix
@@ -41,16 +42,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dataset', type=str, choices=['bow_echo', 'mnist'], default='bow_echo')
     parser.add_argument('-e', '--epochs', type=int, default=100)
-    parser.add_argument('-b', '--batch-size', type=int, default=150)
-    parser.add_argument('-k', '--keep-probability', type=float, default=0.5)
-    parser.add_argument('-w', '--use-weighted-loss', type=str.lower, choices=['t', 'true', 'f', 'false'], default='t')
-    parser.add_argument('-r', '--imbalanced-class-ratio', type=float, default=1,
+    parser.add_argument('-b', '--batchsize', type=int, default=150)
+    parser.add_argument('-k', '--keepprobability', type=float, default=0.5)
+    parser.add_argument('-w', '--useweightedloss', type=str.lower, choices=['t', 'true', 'f', 'false'], default='t')
+    parser.add_argument('-r', '--imbalancedclassratio', type=float, default=1,
                         help='ratio of balanced dataset size to imbalanced dataset size as a decimal')
-    parser.add_argument('-i', '--imbalanced-class-index', type=int, default=0,
+    parser.add_argument('-i', '--imbalancedclassindex', type=int, default=0,
                         help='index of class to be made imbalanced with [ratio]')
-    parser.add_argument('-m', '--imbalanced-class-weight-multiplier', type=float, default=1,
+    parser.add_argument('-m', '--imbalancedclassweightmultiplier', type=float, default=1,
                         help='value to scale imbalanced class weight')
-    parser.add_argument('-f','--kfold',type=int,default=4, help='Number of folds for cross validation. Default 4, use 1 for no cross validation')
+    parser.add_argument('-f', '--kfold', type=int, default=4,
+                        help='Number of folds for cross validation. Default 4, use 1 for no cross validation')
     args = parser.parse_args()
 
     use_weighted_loss = args.use_weighted_loss in ('t', 'true')
@@ -62,33 +64,32 @@ if __name__ == '__main__':
 
     train_accs_map = {}
     test_accs_map = {}
-    ratios = range(10, 45, 5)
+    # ratios = range(10, 45, 5)
+    ratio = args.imbalancedclassratio
     mults = [.25, .5, 1, 2, 4]
     '''TODO: We should create a separate file with these loops and just run this file from it'''
-    for ratio in ratios:
-        print('ratio=',ratio)
-        for mult in mults:
-            print('mult=',mult)
-            avg_train_acc = 0
-            avg_train_conf = 0
-            avg_test_acc = 0
-            avg_test_conf = 0
-            for i in range(kfold):
-                print('k=',i)
-                train_acc, train_conf, test_acc, test_conf = experiment(
-                    imbalanced_class_ratio=ratio, imbalanced_class_weight_mult=mult, kfold=kfold, kfold_index=i)
-                avg_train_acc += train_acc / kfold
-                avg_train_conf += train_conf / kfold
-                avg_test_acc += test_acc / kfold
-                avg_test_conf += test_conf / kfold
-            train_accs = [avg_train_acc] + calc_class_accs(avg_train_conf)
-            test_accs = [avg_test_acc] + calc_class_accs(avg_test_conf)
-            train_accs_map[(ratio, mult)] = train_accs
-            test_accs_map[(ratio, mult)] = test_accs
+    for mult in mults:
+        print('mult=',mult)
+        avg_train_acc = 0
+        avg_train_conf = 0
+        avg_test_acc = 0
+        avg_test_conf = 0
+        for i in range(kfold):
+            print('k=',i)
+            train_acc, train_conf, test_acc, test_conf = experiment(
+                imbalanced_class_ratio=ratio, imbalanced_class_weight_mult=mult, kfold=kfold, kfold_index=i)
+            avg_train_acc += train_acc / kfold
+            avg_train_conf += train_conf / kfold
+            avg_test_acc += test_acc / kfold
+            avg_test_conf += test_conf / kfold
+        train_accs = [avg_train_acc] + calc_class_accs(avg_train_conf)
+        test_accs = [avg_test_acc] + calc_class_accs(avg_test_conf)
+        train_accs_map[(ratio, mult)] = train_accs
+        test_accs_map[(ratio, mult)] = test_accs
 
     abs_dir = op.join(os.getcwd(),'plots','run1')
-    pickle.dump(train_accs_map, open(os.path.join(abs_dir, 'train_accs_map.p'), "wb"))
-    pickle.dump(test_accs_map, open(os.path.join(abs_dir, 'test_accs_map.p'), "wb"))
+    pickle.dump(train_accs_map, open(os.path.join(abs_dir, 'train_accs_map_'+ str(ratio)+'.p'), "wb"))
+    pickle.dump(test_accs_map, open(os.path.join(abs_dir, 'test_accs_map_'+ str(ratio)+'.p'), "wb"))
 
 
 

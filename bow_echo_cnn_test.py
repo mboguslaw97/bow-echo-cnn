@@ -17,7 +17,7 @@ import mnist_data
 import cnn_model
 
 config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
+config.gpu_options.allow_growth = 4
 config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
 def test(dataset, imbalanced_class_ratio=1, kfold=4, kfold_index=0):

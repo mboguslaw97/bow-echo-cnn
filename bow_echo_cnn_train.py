@@ -19,7 +19,7 @@ import cnn_model
 MODEL_DIRECTORY = op.join(os.getcwd(),'model','model.ckpt')
 LOGS_DIRECTORY = op.join(os.getcwd(),'logs','train')
 config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
+config.gpu_options.allow_growth = 4
 config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
 def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_weighted_loss=True,
