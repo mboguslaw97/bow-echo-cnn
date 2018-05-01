@@ -55,7 +55,7 @@ if __name__ == '__main__':
                         help='Number of folds for cross validation. Default 4, use 1 for no cross validation')
     args = parser.parse_args()
 
-    use_weighted_loss = args.use_weighted_loss in ('t', 'true')
+    use_weighted_loss = args.useweightedloss in ('t', 'true')
     kfold = args.kfold
     kfold_index = 0
 
