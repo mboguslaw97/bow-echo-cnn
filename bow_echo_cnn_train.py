@@ -8,15 +8,19 @@ import numpy as np
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-
+import os.path as op
+import os
 import bow_echo_cnn_test
 import bow_echo_data
 import kfold_bed
 import mnist_data
 import cnn_model
 
-MODEL_DIRECTORY = "model/model.ckpt"
-LOGS_DIRECTORY = "logs/train"
+MODEL_DIRECTORY = op.join(os.getcwd(),'model','model.ckpt')
+LOGS_DIRECTORY = op.join(os.getcwd(),'logs','train')
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
 def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_weighted_loss=True,
           imbalanced_class_ratio=1, imbalanced_class_index=0, imbalanced_class_weight_mult=1, kfold=4, kfold_index=0):
@@ -130,7 +134,7 @@ def train(dataset='bow_echo', epochs=100, batch_size=150, keep_prob=0.5, use_wei
 
     # Add ops to save and restore all the variables
     saver = tf.train.Saver()
-    sess = tf.InteractiveSession()
+    sess = tf.InteractiveSession(config=config)
     sess.run(tf.global_variables_initializer(), feed_dict={is_training: True})
 
     # Training cycle

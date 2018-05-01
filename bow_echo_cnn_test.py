@@ -16,6 +16,10 @@ import kfold_bed
 import mnist_data
 import cnn_model
 
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.gpu_options.per_process_gpu_memory_fraction = 0.4
+
 def test(dataset, imbalanced_class_ratio=1, kfold=4, kfold_index=0):
     model_directory = 'model/model.ckpt'
 
@@ -50,7 +54,7 @@ def test(dataset, imbalanced_class_ratio=1, kfold=4, kfold_index=0):
     y = cnn_model.CNN(x, img_shape, num_labels, is_training=is_training)
 
     # Add ops to save and restore all the variables
-    sess = tf.InteractiveSession()
+    sess = tf.InteractiveSession(config=config)
     sess.run(tf.global_variables_initializer(), feed_dict={is_training: True})
 
     # Restore variables from disk

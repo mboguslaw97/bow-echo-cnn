@@ -3,6 +3,7 @@ from bow_echo_cnn_train import train
 from bow_echo_cnn_test import test
 import numpy as np
 import os
+import os.path as op
 import pickle
 
 def calc_class_accs(conf):
@@ -65,12 +66,15 @@ if __name__ == '__main__':
     mults = [.25, .5, 1, 2, 4]
     '''TODO: We should create a separate file with these loops and just run this file from it'''
     for ratio in ratios:
+        print('ratio=',ratio)
         for mult in mults:
+            print('mult=',mult)
             avg_train_acc = 0
             avg_train_conf = 0
             avg_test_acc = 0
             avg_test_conf = 0
             for i in range(kfold):
+                print('k=',i)
                 train_acc, train_conf, test_acc, test_conf = experiment(
                     imbalanced_class_ratio=ratio, imbalanced_class_weight_mult=mult, kfold=kfold, kfold_index=i)
                 avg_train_acc += train_acc / kfold
@@ -82,7 +86,7 @@ if __name__ == '__main__':
             train_accs_map[(ratio, mult)] = train_accs
             test_accs_map[(ratio, mult)] = test_accs
 
-    abs_dir = '/storage/home/meb6031/bow_echo_cnn/plots/run1/'  # aci
+    abs_dir = op.join(os.getcwd(),'plots','run1')
     pickle.dump(train_accs_map, open(os.path.join(abs_dir, 'train_accs_map.p'), "wb"))
     pickle.dump(test_accs_map, open(os.path.join(abs_dir, 'test_accs_map.p'), "wb"))
 
