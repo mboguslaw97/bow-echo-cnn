@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import numpy as np
 import os
+import os.path as op
 from sklearn.metrics import confusion_matrix
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
