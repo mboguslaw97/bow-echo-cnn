@@ -5,6 +5,16 @@ from sklearn.utils import shuffle
 import argparse
 import datasets
 import numpy as np
+import random
+
+def combine_data(X1, y1, X2, y2, amt=-1):
+	if amt == -1:
+		amt = X2.shape[0]
+	i = random.sample(range(X2.shape[0]), amt)
+	X1 = np.append(X1, X2[i], axis=0)
+	y1 = np.append(y1, y2[i], axis=0)
+	X1, y1 = shuffle(X1, y1)
+	return X1, y1.astype(int)
 
 def force_data_imbalance(X, y, urep_class, urep_ratio):
 	samples_per_class = np.bincount(y)
@@ -32,7 +42,7 @@ def test_data_imbalance(y, urep_class):
 	avg_samples_per_class = (np.sum(samples_per_class) - samples_per_class[urep_class]) / (n_classes - 1)
 	urep_n_samples = samples_per_class[urep_class]
 	urep_ratio = avg_samples_per_class / urep_n_samples
-	print('Achieved urep_ratio: {}'.format(urep_ratio))
+	print('urep_ratio: {}'.format(urep_ratio))
 
 def experiment(options):
 	dataset_name = options['dataset_name']
@@ -46,7 +56,9 @@ def experiment(options):
 	X, y = datasets.load_data(dataset_name)
 	y = y.astype(int)
 	n_classes = y.max() + 1
-	n_samples = X.shape[0]
+
+	if urep_class is not None:
+		test_data_imbalance(y, urep_class)
 
 	eval = [0, np.zeros(n_classes), np.zeros(n_classes), 0, np.zeros(n_classes), np.zeros(n_classes)]
 	if use_validation_step:
@@ -59,7 +71,7 @@ def experiment(options):
 		if urep_class is not None and urep_ratio is not None:
 			X_train, y_train = force_data_imbalance(X_train, y_train, urep_class, urep_ratio)
 			test_data_imbalance(y_train, urep_class)
-			eval = train(X_train, y_train, X_val, y_val, X_test, y_test, options)
+		eval = train(X_train, y_train, X_val, y_val, X_test, y_test, options)
 	else:
 		skf = StratifiedKFold(n_splits=n_splits)
 		for train_index, test_index in skf.split(X, y):
@@ -81,7 +93,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-n', '--dataset-name', type=str.lower, default='bowecho',
 						choices=['bowecho', 'mnist', 'fmnist', 'usps', 'pendigits', 'reuters', 'stl'])
-	parser.add_argument('-c', '--urep-class', type=int, help='class to be made underrepresented')
+	parser.add_argument('-c', '--urep-class', type=int, help='index of the underrepresented class')
 	parser.add_argument('-r', '--urep-ratio', type=float,
 						help='average size of a normal class divided by size of the underrepresented class')
 	parser.add_argument('-k', '--kfold', type=int, default=0,
@@ -97,19 +109,17 @@ if __name__ == '__main__':
 	parser.add_argument('-K', '--keep-probability', type=float, default=0.5)
 	parser.add_argument('-w', '--urep-weight', type=int, default=1,
 						help='value to multiply the underrepresented class\'s weight by')
-	parser.add_argument('-d', '--display-step', type=int, default=10)
 	parser.add_argument('-v', '--validation-step', type=int, default=50)
 	args = parser.parse_args()
 
 	# Bow Echo
 	# epochs = 100
-	# display_step = 10
 	# validation_step = 50
 
 	# MNIST
 	# epochs = 20
-	# display_step = 100
 	# validation_step = 150
+
 	options = {
 		'dataset_name': args.dataset_name,
 		'urep_class': args.urep_class,
