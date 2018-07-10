@@ -48,7 +48,6 @@ def train(X_train, y_train, X_val, y_val, X_test, y_test, options):
 	urep_class = options['urep_class']
 	urep_weight = options['urep_weight']
 	use_validation_step = options['use_validation_step']
-	display_step = options['display_step']
 	validation_step = options['validation_step']
 
 	# Define some variables
@@ -70,7 +69,8 @@ def train(X_train, y_train, X_val, y_val, X_test, y_test, options):
 
 	# Compute weights
 	class_weights = np.ones(n_classes)
-	class_weights[urep_class] = urep_weight
+	if urep_class is not None and urep_weight is not None:
+		class_weights[urep_class] = urep_weight
 	sample_weights = class_weights[y_train]
 
 	# if use_weighted_loss:
