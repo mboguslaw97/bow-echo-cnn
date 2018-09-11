@@ -25,12 +25,26 @@ config = tf.ConfigProto()
 def evaluate(X_test, Y_test, tf_vars):
 	sess, is_training, x, y_, y = tf_vars
 
+	X_test, Y_test = shuffle(X_test, Y_test)
+	test_size = X_test.shape[0]
+	batch_size = 200
+	n_test_batches = test_size // batch_size
+	n_classes = Y_test.shape[1]
+
 	# Predict
-	y_pred = sess.run(y, feed_dict={x: X_test, y_: Y_test, is_training: False})
+	Y_pred = np.empty((0, n_classes))
+	for i in range(n_test_batches):
+		# Compute the offset of the current minibatch in the data.
+		offset = (i * batch_size) % (test_size)
+		batch_xs = X_test[offset:(offset + batch_size), :]
+		batch_ys = Y_test[offset:(offset + batch_size), :]
+		batch_pred = sess.run(y, feed_dict={x: batch_xs, y_: batch_ys, is_training: False})
+		Y_pred = np.concatenate((Y_pred, batch_pred), axis=0)
 
 	# One-hot decode
 	y_true = np.argmax(Y_test, 1)
-	y_pred = np.argmax(y_pred, 1)
+	y_true = y_true[:Y_pred.shape[0]]
+	y_pred = np.argmax(Y_pred, 1)
 
 	# Calculate accuracy, precision, and recall
 	accuracy = accuracy_score(y_true, y_pred)

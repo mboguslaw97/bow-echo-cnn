@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+from sklearn.utils import shuffle
 
 
 def extract_vgg16_features(x):
@@ -92,10 +93,18 @@ def make_reuters_data(data_dir):
 	np.save(join(data_dir, 'reutersidf10k.npy'), {'data': x, 'label': y})
 
 
-def load_bowecho():
-	with h5py.File('bow_echo_data.h5', 'r') as hdf:
+def load_generated():
+	with h5py.File('generated_data.h5', 'r') as hdf:
 		x = np.array(hdf.get('X'))
 		y = np.array(hdf.get('y'))
+	return x, y
+
+
+def load_bowecho():
+	with h5py.File('data/bow_echo_data.h5', 'r') as hdf:
+		x = np.array(hdf.get('X'))
+		y = np.array(hdf.get('y'))
+	x, y = shuffle(x, y)
 	return x, y
 
 
@@ -318,6 +327,8 @@ def load_stl(data_path='./data/stl'):
 
 
 def load_data(dataset_name):
+	if dataset_name == 'generated':
+		return load_generated()
 	if dataset_name == 'bowecho':
 		return load_bowecho()
 	if dataset_name == 'mnist':

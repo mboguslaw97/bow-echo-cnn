@@ -7,6 +7,22 @@ import datasets
 import numpy as np
 import random
 
+import DCGAN.main
+
+class Flags:
+  def __init__(self):
+    self.epoch = 25
+    self.learning_rate = 0.0002
+    self.beta1 = 0.5
+    self.train_size = np.inf
+    self.batch_size = 64
+    self.dataset = 'bowecho'
+    self.class_index = None
+    self.checkpoint_dir = './checkpoint'
+    self.sample_dir = './data/samples'
+    self.s_dim = 1000
+    self.z_dim = 100
+
 def combine_data(X1, y1, X2, y2, amt=-1):
 	if amt == -1:
 		amt = X2.shape[0]
@@ -45,9 +61,14 @@ def test_data_imbalance(y, urep_class):
 	print('urep_ratio: {}'.format(urep_ratio))
 
 def experiment(options):
+	print('CNN Flags')
+	print(options)
 	dataset_name = options['dataset_name']
 	urep_class = options['urep_class']
 	urep_ratio = options['urep_ratio']
+	load_gen = options['load_gen']
+	epochs_gen = options['epochs_gen']
+	r_gen = options['r_gen']
 	use_validation_step = options['use_validation_step']
 	train_size = options['train_size']
 	test_size = options['test_size']
@@ -60,7 +81,12 @@ def experiment(options):
 	if urep_class is not None:
 		test_data_imbalance(y, urep_class)
 
-	eval = [0, np.zeros(n_classes), np.zeros(n_classes), 0, np.zeros(n_classes), np.zeros(n_classes)]
+	if epochs_gen:
+		flags = Flags()
+		flags.epoch = epochs_gen
+		flags.class_index = urep_class
+
+	#eval = [0, np.zeros(n_classes), np.zeros(n_classes), 0, np.zeros(n_classes), np.zeros(n_classes)]
 	if use_validation_step:
 		sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, train_size=train_size)
 		train_index, test_index = next(sss.split(X, y))
@@ -71,69 +97,34 @@ def experiment(options):
 		if urep_class is not None and urep_ratio is not None:
 			X_train, y_train = force_data_imbalance(X_train, y_train, urep_class, urep_ratio)
 			test_data_imbalance(y_train, urep_class)
+		if epochs_gen or load_gen:
+			if epochs_gen:
+				r_gen = r_gen if r_gen else 1
+				flags.s_dim = r_gen * np.bincount(y_train)[urep_class]
+				print('DCGAN Flags')
+				print(vars(flags))
+				X_gen, y_gen = DCGAN.main.train(X_train, y_train, flags)
+			elif load_gen:
+				X_gen, y_gen = datasets.load_data('generated')
+			X_train, y_train = combine_data(X_train, y_train, X_gen, y_gen)
+			test_data_imbalance(y_train, urep_class)
 		eval = train(X_train, y_train, X_val, y_val, X_test, y_test, options)
-	else:
-		skf = StratifiedKFold(n_splits=n_splits)
-		for train_index, test_index in skf.split(X, y):
-			X_train, y_train = shuffle(X[train_index], y[train_index])
-			X_test, y_test = shuffle(X[test_index], y[test_index])
-			if urep_class is not None and urep_ratio is not None:
-				X_train, y_train = force_data_imbalance(X_train, y_train, urep_class, urep_ratio)
-				test_data_imbalance(y_train, urep_class)
-			split_eval = train(X_train, y_train, None, None, X_test, y_test, options)
-			for i in range(6):
-				eval[i] += split_eval[i] / n_splits
+	# else:
+	# 	skf = StratifiedKFold(n_splits=n_splits)
+	# 	for train_index, test_index in skf.split(X, y):
+	# 		X_train, y_train = shuffle(X[train_index], y[train_index])
+	# 		X_test, y_test = shuffle(X[test_index], y[test_index])
+	# 		if urep_class is not None and urep_ratio is not None:
+	# 			X_train, y_train = force_data_imbalance(X_train, y_train, urep_class, urep_ratio)
+	# 			test_data_imbalance(y_train, urep_class)
+	# 		if n_gen != 0:
+	# 			X_train, y_train = combine_data(X_train, y_train, X_gen, y_gen, n_gen)
+	# 			test_data_imbalance(y_train, urep_class)
+	# 		split_eval = train(X_train, y_train, None, None, X_test, y_test, options)
+	# 		for i in range(6):
+	# 			eval[i] += split_eval[i] / n_splits
 
 	for perf in eval:
 		print(perf)
 
 	return eval
-
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-n', '--dataset-name', type=str.lower, default='bowecho',
-						choices=['bowecho', 'mnist', 'fmnist', 'usps', 'pendigits', 'reuters', 'stl'])
-	parser.add_argument('-c', '--urep-class', type=int, help='index of the underrepresented class')
-	parser.add_argument('-r', '--urep-ratio', type=float,
-						help='average size of a normal class divided by size of the underrepresented class')
-	parser.add_argument('-k', '--kfold', type=int, default=0,
-						help='Number of folds used for k-fold cross validation. '
-							 'If less than 2, k-fold cross validation is not used')
-	parser.add_argument('-t', '--train-size', type=float, default=0.7,
-						help='proportion of the data to include in the train set')
-	parser.add_argument('-T', '--test-size', type=float, default=0.15,
-						help='proportion of the data to include in the test set')
-
-	parser.add_argument('-e', '--epochs', type=int, default=20)
-	parser.add_argument('-b', '--batch-size', type=int, default=150)
-	parser.add_argument('-K', '--keep-probability', type=float, default=0.5)
-	parser.add_argument('-w', '--urep-weight', type=int, default=1,
-						help='value to multiply the underrepresented class\'s weight by')
-	parser.add_argument('-v', '--validation-step', type=int, default=50)
-	args = parser.parse_args()
-
-	# Bow Echo
-	# epochs = 100
-	# validation_step = 50
-
-	# MNIST
-	# epochs = 20
-	# validation_step = 150
-
-	options = {
-		'dataset_name': args.dataset_name,
-		'urep_class': args.urep_class,
-		'urep_ratio': args.urep_ratio,
-		'urep_weight': args.urep_weight,
-		'use_validation_step': args.kfold < 2,
-		'train_size': args.train_size,
-		'test_size': args.test_size,
-		'n_splits': args.kfold,
-		'epochs': args.epochs,
-		'batch_size': args.batch_size,
-		'keep_prob': args.keep_probability,
-		'display_step': args.display_step,
-		'validation_step': args.validation_step
-	}
-
-	experiment(options)
